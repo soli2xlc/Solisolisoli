@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arch Linux Web Terminal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts: Inter for UI & JetBrains Mono for Code/Terminal -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        theme: {
+                            bg: '#18191a',
+                            card: '#222426',
+                            cardHover: '#2a2d30',
+                            border: '#323538',
+                            accentPink: '#e58f96',
+                            accentTeal: '#76c8b3',
+                            accentGold: '#e9c46a',
+                            textMuted: '#8c9298',
+                            textBright: '#e1e4e8',
+                            archBlue: '#1793d1'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #18191a;
+            color: #e1e4e8;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Custom scrollbar matching screenshot style */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18191a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #323538;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484c50;
+        }
+
+        /* Command Line Input reset */
+        .cmd-input {
+            background: transparent;
+            outline: none;
+            border: none;
+            color: #e1e4e8;
+            width: 100%;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glow-card {
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+    </style>
+</head>
+<body class="min-h-screen w-screen flex flex-col items-center justify-between p-3 sm:p-6 select-none bg-theme-bg">
+
+    <!-- Top Statistics Dashboard Header -->
+    <header class="w-full max-w-6xl grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
+        <!-- Stat Item 1 -->
+        <div class="bg-theme-card border border-theme-border rounded-xl p-3 flex flex-col justify-center items-center text-center">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-theme-textMuted">SYSTEM STATUS</span>
+            <span class="text-lg sm:text-2xl font-extrabold text-theme-accentTeal mt-0.5 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-theme-accentTeal animate-pulse"></span>
+                ONLINE
+            </span>
+            <span class="text-[11px] text-theme-textMuted mt-0.5 hidden sm:inline">Arch Linux x86_64</span>
+        </div>
+
+        <!-- Stat Item 2 -->
+        <div class="bg-theme-card border border-theme-border rounded-xl p-3 flex flex-col justify-center items-center text-center">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-theme-textMuted">PACKAGES</span>
+            <span id="stat-pkg-count" class="text-lg sm:text-2xl font-extrabold text-theme-accentPink mt-0.5">8</span>
+            <span class="text-[11px] text-theme-textMuted mt-0.5 hidden sm:inline">Installed via pacman</span>
+        </div>
+
+        <!-- Stat Item 3 -->
+        <div class="bg-theme-card border border-theme-border rounded-xl p-3 flex flex-col justify-center items-center text-center">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-theme-textMuted">COMMANDS RUN</span>
+            <span id="stat-cmd-count" class="text-lg sm:text-2xl font-extrabold text-theme-accentGold mt-0.5">0</span>
+            <span class="text-[11px] text-theme-textMuted mt-0.5 hidden sm:inline">Active Session History</span>
+        </div>
+
+        <!-- Stat Item 4 -->
+        <div class="hidden sm:flex bg-theme-card border border-theme-border rounded-xl p-3 flex-col justify-center items-center text-center">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-theme-textMuted">KERNEL / SHELL</span>
+            <span class="text-base font-bold text-theme-textBright mt-0.5">6.11.0-arch1</span>
+            <span class="text-[11px] text-theme-textMuted mt-0.5">bash 5.2.26</span>
+        </div>
+    </header>
+
+    <!-- Main Terminal Container Card -->
+    <main class="w-full max-w-6xl flex-1 flex flex-col bg-theme-card border border-theme-border rounded-2xl overflow-hidden glow-card relative min-h-[500px]">
+        
+        <!-- Terminal Header Controls Bar -->
+        <div class="bg-[#1c1d1e] border-b border-theme-border px-4 py-3 flex items-center justify-between shrink-0">
+            <!-- Left Side Window Controls & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <button id="btn-close" class="w-3.5 h-3.5 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors" title="Clear Shell"></button>
+                    <button id="btn-minimize" class="w-3.5 h-3.5 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors" title="Minimize Window"></button>
+                    <button id="btn-maximize" class="w-3.5 h-3.5 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors" title="Toggle Fullscreen"></button>
+                </div>
+                <span class="text-xs font-mono text-theme-textMuted pl-2 border-l border-theme-border">user@archlinux:~</span>
+            </div>
+
+            <!-- Quick Action Badges -->
+            <div class="flex items-center space-x-2 text-xs font-mono">
+                <button onclick="runCommand('neofetch')" class="px-2.5 py-1 rounded-lg bg-theme-border hover:bg-theme-cardHover text-theme-textBright transition-colors text-[11px] flex items-center gap-1.5">
+                    <i class="fa-brands fa-linux text-theme-archBlue"></i> fetch
+                </button>
+                <button onclick="runCommand('pacman -Syu')" class="px-2.5 py-1 rounded-lg bg-theme-border hover:bg-theme-cardHover text-theme-accentTeal transition-colors text-[11px]">
+                    pacman -Syu
+                </button>
+                <button onclick="runCommand('help')" class="px-2.5 py-1 rounded-lg bg-theme-border hover:bg-theme-cardHover text-theme-accentGold transition-colors text-[11px]">
+                    help
+                </button>
+            </div>
+        </div>
+
+        <!-- Terminal Workspace Output Area -->
+        <div id="terminal-body" class="flex-1 p-4 sm:p-6 overflow-y-auto font-mono text-xs sm:text-sm text-theme-textBright leading-relaxed space-y-1">
+            <!-- Output Lines Rendered Here -->
+            <div id="output-area"></div>
+
+            <!-- Active CLI Input Prompt -->
+            <div id="input-row" class="flex items-center flex-wrap gap-2 pt-1">
+                <span class="text-theme-accentTeal font-bold">[user@archlinux</span>
+                <span class="text-theme-textMuted font-bold">~]$</span>
+                <div class="flex-1 flex items-center min-w-[180px]">
+                    <input type="text" id="cli-input" class="cmd-input text-theme-textBright focus:outline-none" spellcheck="false" autocomplete="off" autofocus>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fullscreen Canvas Overlay for interactive apps -->
+        <div id="canvas-overlay" class="hidden absolute inset-0 bg-[#141516] z-20 flex flex-col">
+            <div class="bg-[#1c1d1e] border-b border-theme-border px-4 py-2 text-xs font-mono text-theme-textMuted flex justify-between items-center">
+                <span id="overlay-title" class="text-theme-textBright font-semibold">Interactive App View</span>
+                <span class="text-xs text-theme-accentPink">Press <kbd class="px-1.5 py-0.5 bg-theme-border rounded text-theme-textBright">Q</kbd> or <kbd class="px-1.5 py-0.5 bg-theme-border rounded text-theme-textBright">Ctrl+C</kbd> to exit</span>
+            </div>
+            <div id="overlay-content" class="flex-1 relative overflow-hidden font-mono">
+                <canvas id="app-canvas" class="w-full h-full block"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Aesthetic Footer Controls -->
+    <footer class="w-full max-w-6xl mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-theme-textMuted gap-2">
+        <div class="flex items-center space-x-4">
+            <span>Tip: Try <code class="text-theme-accentGold">pacman -S cmatrix</code> or <code class="text-theme-accentPink">htop</code></span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span>Click canvas to focus input</span>
+            <span>•</span>
+            <span>Tab for autocomplete</span>
+        </div>
+    </footer>
+
+    <!-- JavaScript Terminal Application Logic -->
+    <script>
+        const STATE = {
+            user: "user",
+            hostname: "archlinux",
+            cwd: "~",
+            history: [],
+            historyIdx: -1,
+            cmdCounter: 0,
+            installedPackages: new Set(["base", "linux", "pacman", "bash", "coreutils", "fastfetch", "neofetch"]),
+            availablePackages: {
+                "cmatrix": { version: "2.0-2", size: "45 KiB", desc: "Simulates Matrix code falling effect" },
+                "htop": { version: "3.3.0-1", size: "1.2 MiB", desc: "Interactive process viewer & CPU monitor" },
+                "sl": { version: "5.02-1", size: "22 KiB", desc: "Steam Locomotive running across screen" },
+                "cowsay": { version: "3.7.0-1", size: "28 KiB", desc: "Configurable speaking cow ASCII art" },
+                "vim": { version: "9.1.0-1", size: "34 MiB", desc: "Vi Improved text editor" },
+                "git": { version: "2.44.0-1", size: "28 MiB", desc: "Fast distributed version control system" },
+                "python": { version: "3.12.2-1", size: "102 MiB", desc: "High-level scripting programming language" },
+                "fastfetch": { version: "2.8.0-1", size: "2.1 MiB", desc: "Neofetch-like quick system info tool" }
+            },
+            fileSystem: {
+                "~": ["welcome.txt", "documents", "projects"],
+                "~/documents": ["notes.txt"],
+                "~/projects": ["script.py"]
+            },
+            fileContents: {
+                "~/welcome.txt": "Welcome to Arch Linux Web Shell!\nStyle inspired by modern minimal dark UI aesthetics.\nType 'help' to get started.",
+                "~/documents/notes.txt": "Arch Linux Wiki contains all solutions.",
+                "~/projects/script.py": "print('Hello from Arch Linux Web Terminal!')"
+            }
+        };
+
+        const DOM = {
+            terminalBody: document.getElementById('terminal-body'),
+            outputArea: document.getElementById('output-area'),
+            inputRow: document.getElementById('input-row'),
+            cliInput: document.getElementById('cli-input'),
+            canvasOverlay: document.getElementById('canvas-overlay'),
+            overlayTitle: document.getElementById('overlay-title'),
+            appCanvas: document.getElementById('app-canvas'),
+            statPkgCount: document.getElementById('stat-pkg-count'),
+            statCmdCount: document.getElementById('stat-cmd-count')
+        };
+
+        let appAnimationId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            showNeofetch();
+            setupEventListeners();
+            updateStats();
+        });
+
+        function setupEventListeners() {
+            DOM.terminalBody.addEventListener('click', () => {
+                DOM.cliInput.focus();
+            });
+
+            DOM.cliInput.addEventListener('keydown', handleKeyDown);
+
+            window.addEventListener('keydown', (e) => {
+                if (!DOM.canvasOverlay.classList.contains('hidden')) {
+                    if ((e.ctrlKey && e.key === 'c') || e.key.toLowerCase() === 'q') {
+                        closeAppOverlay();
+                    }
+                }
+            });
+
+            document.getElementById('btn-close').addEventListener('click', () => {
+                DOM.outputArea.innerHTML = '';
+                appendOutput('<div class="text-theme-accentPink">Shell cleared.</div>');
+            });
+            document.getElementById('btn-minimize').addEventListener('click', () => {
+                DOM.terminalBody.classList.toggle('hidden');
+            });
+            document.getElementById('btn-maximize').addEventListener('click', () => {
+                document.querySelector('main').classList.toggle('max-w-6xl');
+                document.querySelector('main').classList.toggle('w-full');
+            });
+        }
+
+        function updateStats() {
+            DOM.statPkgCount.innerText = STATE.installedPackages.size;
+            DOM.statCmdCount.innerText = STATE.cmdCounter;
+        }
+
+        function showNeofetch() {
+            const html = `
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 my-3 text-xs sm:text-sm font-mono leading-tight">
+    <div class="md:col-span-5 text-theme-accentTeal font-bold whitespace-pre select-none leading-none">
+       /\
+      /  \
+     /\   \
+    /      \
+   /   ,,   \
+  /   |  |  -\
+ /_-''    ''-_\
+    </div>
+    <div class="md:col-span-7 space-y-1">
+        <div><span class="text-theme-accentTeal font-bold">user</span>@<span class="text-theme-accentTeal font-bold">archlinux</span></div>
+        <div class="text-theme-border">---------------------------------</div>
+        <div><span class="text-theme-accentPink font-semibold">OS:</span> Arch Linux x86_64</div>
+        <div><span class="text-theme-accentPink font-semibold">Host:</span> Web Terminal (Soli Aesthetics)</div>
+        <div><span class="text-theme-accentPink font-semibold">Kernel:</span> 6.11.0-arch1-1</div>
+        <div><span class="text-theme-accentPink font-semibold">Uptime:</span> Just booted</div>
+        <div><span class="text-theme-accentPink font-semibold">Packages:</span> ${STATE.installedPackages.size} (pacman)</div>
+        <div><span class="text-theme-accentPink font-semibold">Shell:</span> bash 5.2.26</div>
+        <div><span class="text-theme-accentPink font-semibold">Terminal:</span> HTML5 Dark Web CLI</div>
+        <div><span class="text-theme-accentPink font-semibold">Memory:</span> 512MiB / 16384MiB</div>
+        <div class="flex space-x-1.5 pt-2">
+            <span class="w-3.5 h-3.5 bg-[#18191a] border border-theme-border rounded-sm inline-block"></span>
+            <span class="w-3.5 h-3.5 bg-theme-accentPink rounded-sm inline-block"></span>
+            <span class="w-3.5 h-3.5 bg-theme-accentTeal rounded-sm inline-block"></span>
+            <span class="w-3.5 h-3.5 bg-theme-accentGold rounded-sm inline-block"></span>
+            <span class="w-3.5 h-3.5 bg-sky-400 rounded-sm inline-block"></span>
+            <span class="w-3.5 h-3.5 bg-purple-400 rounded-sm inline-block"></span>
+        </div>
+    </div>
+</div>
+<div class="text-theme-textMuted text-xs my-2">Type <span class="text-theme-accentGold font-medium">help</span> for commands or <span class="text-theme-accentTeal font-medium">pacman -Syu</span> to sync packages.</div>
+            `;
+            appendOutput(html);
+        }
+
+        function handleKeyDown(e) {
+            if (e.key === 'Enter') {
+                const cmd = DOM.cliInput.value.trim();
+                if (cmd.length > 0) {
+                    STATE.history.push(cmd);
+                    STATE.historyIdx = STATE.history.length;
+                    STATE.cmdCounter++;
+                    updateStats();
+                }
+
+                appendPromptEcho(cmd);
+                DOM.cliInput.value = '';
+
+                if (cmd.length > 0) {
+                    processCommand(cmd);
+                }
+                scrollToBottom();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (STATE.historyIdx > 0) {
+                    STATE.historyIdx--;
+                    DOM.cliInput.value = STATE.history[STATE.historyIdx];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (STATE.historyIdx < STATE.history.length - 1) {
+                    STATE.historyIdx++;
+                    DOM.cliInput.value = STATE.history[STATE.historyIdx];
+                } else {
+                    STATE.historyIdx = STATE.history.length;
+                    DOM.cliInput.value = '';
+                }
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                handleTabCompletion();
+            } else if (e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                DOM.outputArea.innerHTML = '';
+            }
+        }
+
+        function runCommand(cmdText) {
+            DOM.cliInput.value = cmdText;
+            DOM.cliInput.focus();
+            const event = new KeyboardEvent('keydown', { key: 'Enter' });
+            DOM.cliInput.dispatchEvent(event);
+        }
+
+        function appendOutput(html) {
+            const div = document.createElement('div');
+            div.className = "mb-1";
+            div.innerHTML = html;
+            DOM.outputArea.appendChild(div);
+            scrollToBottom();
+        }
+
+        function appendPromptEcho(cmd) {
+            const div = document.createElement('div');
+            div.className = "flex items-center flex-wrap gap-2 my-1";
+            div.innerHTML = `
+                <span class="text-theme-accentTeal font-bold">[${STATE.user}@${STATE.hostname} ${STATE.cwd}]$</span>
+                <span class="text-theme-textBright">${escapeHtml(cmd)}</span>
+            `;
+            DOM.outputArea.appendChild(div);
+        }
+
+        function scrollToBottom() {
+            DOM.terminalBody.scrollTop = DOM.terminalBody.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function handleTabCompletion() {
+            const input = DOM.cliInput.value;
+            const parts = input.split(' ');
+            const last = parts[parts.length - 1];
+
+            const cmds = ['pacman', 'neofetch', 'fastfetch', 'clear', 'help', 'ls', 'cd', 'cat', 'pwd', 'whoami', 'uname', 'date', 'history', 'cmatrix', 'sl', 'htop', 'cowsay', 'python', 'vim', 'git'];
+            
+            if (parts.length === 1) {
+                const matches = cmds.filter(c => c.startsWith(last));
+                if (matches.length === 1) {
+                    DOM.cliInput.value = matches[0] + ' ';
+                } else if (matches.length > 1) {
+                    appendOutput(`<div class="text-theme-textMuted">${matches.join('  ')}</div>`);
+                }
+            } else if (parts[0] === 'pacman') {
+                const pkgs = Object.keys(STATE.availablePackages);
+                const matches = pkgs.filter(p => p.startsWith(last));
+                if (matches.length === 1) {
+                    parts[parts.length - 1] = matches[0];
+                    DOM.cliInput.value = parts.join(' ');
+                } else if (matches.length > 1) {
+                    appendOutput(`<div class="text-theme-textMuted">${matches.join('  ')}</div>`);
+                }
+            }
+        }
+
+        function processCommand(cmdLine) {
+            const args = cmdLine.trim().split(/\s+/);
+            const cmd = args[0].toLowerCase();
+
+            switch (cmd) {
+                case 'help':
+                    cmdHelp();
+                    break;
+                case 'clear':
+                case 'cls':
+                    DOM.outputArea.innerHTML = '';
+                    break;
+                case 'neofetch':
+                case 'fastfetch':
+                case 'fetch':
+                    showNeofetch();
+                    break;
+                case 'pacman':
+                    cmdPacman(args.slice(1));
+                    break;
+                case 'ls':
+                    cmdLs(args.slice(1));
+                    break;
+                case 'cd':
+                    cmdCd(args.slice(1));
+                    break;
+                case 'pwd':
+                    appendOutput(`<div class="text-theme-textBright">${STATE.cwd === '~' ? '/home/user' : '/home/user/' + STATE.cwd.replace('~/', '')}</div>`);
+                    break;
+                case 'cat':
+                    cmdCat(args.slice(1));
+                    break;
+                case 'whoami':
+                    appendOutput(`<div class="text-theme-textBright">${STATE.user}</div>`);
+                    break;
+                case 'uname':
+                    appendOutput(`<div class="text-theme-textBright">Linux archlinux 6.11.0-arch1-1 #1 SMP PREEMPT_DYNAMIC Web Assembly x86_64 GNU/Linux</div>`);
+                    break;
+                case 'date':
+                    appendOutput(`<div class="text-theme-textBright">${new Date().toString()}</div>`);
+                    break;
+                case 'history':
+                    STATE.history.forEach((h, i) => {
+                        appendOutput(`<div class="text-theme-textMuted"><span class="w-8 inline-block text-theme-border">${i + 1}</span> ${escapeHtml(h)}</div>`);
+                    });
+                    break;
+                case 'cmatrix':
+                    if (checkInstalled('cmatrix')) runCmatrix();
+                    break;
+                case 'htop':
+                    if (checkInstalled('htop')) runHtop();
+                    break;
+                case 'sl':
+                    if (checkInstalled('sl')) runSteamLocomotive();
+                    break;
+                case 'cowsay':
+                    if (checkInstalled('cowsay')) runCowsay(args.slice(1).join(' ') || "Moo! Arch Linux is best.");
+                    break;
+                case 'vim':
+                case 'vi':
+                    if (checkInstalled('vim')) appendOutput(`<div class="text-theme-accentGold">Vim simulator mode: File viewer ready. Use cat to inspect text files.</div>`);
+                    break;
+                case 'python':
+                case 'python3':
+                    if (checkInstalled('python')) appendOutput(`<div class="text-theme-accentTeal">Python 3.12.2 (main, Arch Web REPL)\n>>> print("Hello from Arch Linux!")\nHello from Arch Linux!</div>`);
+                    break;
+                default:
+                    appendOutput(`<div class="text-theme-accentPink">bash: command not found: ${escapeHtml(cmd)}. Type 'help' or install via 'pacman -S ${escapeHtml(cmd)}'.</div>`);
+                    break;
+            }
+        }
+
+        function checkInstalled(pkg) {
+            if (STATE.installedPackages.has(pkg)) {
+                return true;
+            } else {
+                appendOutput(`<div class="text-theme-accentPink">bash: ${pkg}: command not found. Install with: <span class="text-theme-accentTeal font-semibold">pacman -S ${pkg}</span></div>`);
+                return false;
+            }
+        }
+
+        function cmdHelp() {
+            appendOutput(`
+<div class="text-theme-textBright space-y-1 my-1">
+    <div class="font-bold text-theme-accentTeal">Available Commands:</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">pacman</span> - Arch package manager (pacman -Syu, pacman -S &lt;pkg&gt;)</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">neofetch</span> - System overview banner</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">ls, cd, pwd</span> - File navigation</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">cat [file]</span> - Display file contents</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">clear</span> - Clear terminal buffer</div>
+    <div><span class="text-theme-accentPink w-28 inline-block font-semibold">history</span> - Command history list</div>
+    <div class="pt-1 text-theme-textMuted">Try installing tools: <span class="text-theme-accentGold">pacman -S cmatrix htop sl cowsay</span></div>
+</div>
+            `);
+        }
+
+        function cmdPacman(args) {
+            if (args.length === 0 || args.includes('-h')) {
+                appendOutput(`
+<div class="text-theme-textBright space-y-1">
+    <div class="font-bold text-theme-accentTeal">Pacman Package Manager</div>
+    <div><span class="text-theme-accentGold">-Syu</span>            Full system sync & update</div>
+    <div><span class="text-theme-accentGold">-S &lt;pkg&gt;</span>       Install target package</div>
+    <div><span class="text-theme-accentGold">-Ss &lt;query&gt;</span>    Search packages</div>
+    <div><span class="text-theme-accentGold">-Q</span>              List installed packages</div>
+</div>
+                `);
+                return;
+            }
+
+            const flag = args[0];
+
+            if (flag === '-Syu' || flag === '-Syyu') {
+                DOM.cliInput.disabled = true;
+                appendOutput(`<div class="text-theme-accentTeal">:: Synchronizing package databases...</div>`);
+                setTimeout(() => {
+                    appendOutput(`<div> core is up to date</div><div> extra is up to date</div>`);
+                    appendOutput(`<div class="text-theme-accentTeal">:: Starting full system upgrade...</div>`);
+                    setTimeout(() => {
+                        appendOutput(`<div class="text-theme-accentTeal">:: System upgraded. Nothing to do.</div>`);
+                        DOM.cliInput.disabled = false;
+                        DOM.cliInput.focus();
+                    }, 600);
+                }, 500);
+            } else if (flag === '-S') {
+                const target = args[1];
+                if (!target) {
+                    appendOutput(`<div class="text-theme-accentPink">error: no targets specified</div>`);
+                    return;
+                }
+                if (!STATE.availablePackages[target]) {
+                    appendOutput(`<div class="text-theme-accentPink">error: target not found: ${escapeHtml(target)}</div>`);
+                    return;
+                }
+
+                DOM.cliInput.disabled = true;
+                const pkgData = STATE.availablePackages[target];
+                appendOutput(`
+<div class="text-theme-textBright my-1">
+    <div>resolving dependencies...</div>
+    <div>Packages (1) ${target}-${pkgData.version}</div>
+    <div>Total Installed Size: ${pkgData.size}</div>
+</div>
+                `);
+
+                let progress = 0;
+                const pDiv = document.createElement('div');
+                pDiv.className = "text-theme-accentTeal my-1";
+                DOM.outputArea.appendChild(pDiv);
+
+                const interval = setInterval(() => {
+                    progress += 25;
+                    const filled = '#'.repeat(progress / 5);
+                    const empty = '-'.repeat(20 - (progress / 5));
+                    pDiv.innerText = `downloading ${target}... [${filled}${empty}] ${progress}%`;
+                    scrollToBottom();
+
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        STATE.installedPackages.add(target);
+                        updateStats();
+                        appendOutput(`<div class="text-theme-accentTeal font-bold">:: Transaction completed successfully. Package '${target}' installed.</div>`);
+                        DOM.cliInput.disabled = false;
+                        DOM.cliInput.focus();
+                    }
+                }, 120);
+
+            } else if (flag === '-Ss') {
+                const query = args[1] || "";
+                Object.keys(STATE.availablePackages).forEach(p => {
+                    if (p.includes(query)) {
+                        const installed = STATE.installedPackages.has(p) ? ' <span class="text-theme-accentTeal">[installed]</span>' : '';
+                        appendOutput(`<div><span class="text-theme-accentGold font-bold">extra/${p}</span> ${STATE.availablePackages[p].version}${installed}</div><div class="text-theme-textMuted pl-4">${STATE.availablePackages[p].desc}</div>`);
+                    }
+                });
+            } else if (flag === '-Q') {
+                appendOutput(`<div class="text-theme-textBright">${Array.from(STATE.installedPackages).sort().join('\n')}</div>`);
+            }
+        }
+
+        function cmdLs(args) {
+            const files = STATE.fileSystem[STATE.cwd] || STATE.fileSystem["~"];
+            const formatted = files.map(f => !f.includes('.') ? `<span class="text-theme-accentTeal font-bold">${f}/</span>` : `<span class="text-theme-textBright">${f}</span>`).join('  ');
+            appendOutput(`<div>${formatted}</div>`);
+        }
+
+        function cmdCd(args) {
+            const dir = args[0];
+            if (!dir || dir === '~') {
+                STATE.cwd = '~';
+            } else if (dir === 'documents' || dir === '~/documents') {
+                STATE.cwd = '~/documents';
+            } else if (dir === 'projects' || dir === '~/projects') {
+                STATE.cwd = '~/projects';
+            } else if (dir === '..' || dir === '../') {
+                STATE.cwd = '~';
+            } else {
+                appendOutput(`<div class="text-theme-accentPink">bash: cd: ${escapeHtml(dir)}: No such directory</div>`);
+            }
+        }
+
+        function cmdCat(args) {
+            if (!args[0]) {
+                appendOutput(`<div class="text-theme-accentPink">cat: missing file argument</div>`);
+                return;
+            }
+            const path = args[0].startsWith('~') ? args[0] : (STATE.cwd === '~' ? `~/${args[0]}` : `${STATE.cwd}/${args[0]}`);
+            if (STATE.fileContents[path]) {
+                appendOutput(`<div class="text-theme-textBright whitespace-pre-wrap">${escapeHtml(STATE.fileContents[path])}</div>`);
+            } else {
+                appendOutput(`<div class="text-theme-accentPink">cat: ${escapeHtml(args[0])}: File not found</div>`);
+            }
+        }
+
+        function runCowsay(text) {
+            const len = text.length;
+            const border = "-".repeat(len + 2);
+            const cow = `
+  ${border}
+< ${escapeHtml(text)} >
+  ${border}
+        \\   ^__^
+         \\  (oo)\\_______
+            (__)\\       )\\/\\
+                ||----w |
+                ||     ||
+            `;
+            appendOutput(`<div class="text-theme-accentGold whitespace-pre leading-tight">${cow}</div>`);
+        }
+
+        function openAppOverlay(title) {
+            DOM.overlayTitle.innerText = title;
+            DOM.canvasOverlay.classList.remove('hidden');
+        }
+
+        function closeAppOverlay() {
+            DOM.canvasOverlay.classList.add('hidden');
+            if (appAnimationId) {
+                cancelAnimationFrame(appAnimationId);
+                clearTimeout(appAnimationId);
+                appAnimationId = null;
+            }
+            DOM.cliInput.focus();
+        }
+
+        function runCmatrix() {
+            openAppOverlay("cmatrix - Rain Simulation");
+            const canvas = DOM.appCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = DOM.canvasOverlay.clientWidth;
+            canvas.height = DOM.canvasOverlay.clientHeight;
+
+            const chars = "0123456789ABCDEFARCHLINUX";
+            const fontSize = 14;
+            const columns = Math.floor(canvas.width / fontSize);
+            const drops = Array(columns).fill(1);
+
+            function draw() {
+                ctx.fillStyle = "rgba(24, 25, 26, 0.1)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#76c8b3";
+                ctx.font = `${fontSize}px JetBrains Mono`;
+
+                for (let i = 0; i < drops.length; i++) {
+                    const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+                appAnimationId = requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        function runHtop() {
+            openAppOverlay("htop - System Process Monitor");
+            const canvas = DOM.appCanvas;
+            const ctx = canvas.getContext('2d');
+
+            function render() {
+                canvas.width = DOM.canvasOverlay.clientWidth;
+                canvas.height = DOM.canvasOverlay.clientHeight;
+
+                ctx.fillStyle = "#18191a";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.font = "12px JetBrains Mono";
+
+                for (let i = 1; i <= 4; i++) {
+                    const load = Math.floor(15 + Math.random() * 45);
+                    const bars = "|".repeat(Math.floor(load / 4));
+                    ctx.fillStyle = "#76c8b3";
+                    ctx.fillText(`${i}  [${bars.padEnd(25, ' ')}] ${load}.0%`, 20, 25 * i);
+                }
+
+                ctx.fillStyle = "#e58f96";
+                ctx.fillText(`Mem[||||||||||||                512M/16.0G]`, 340, 25);
+                ctx.fillStyle = "#e9c46a";
+                ctx.fillText(`Swp[                            0K/8.00G]`, 340, 50);
+
+                ctx.fillStyle = "#323538";
+                ctx.fillRect(10, 130, canvas.width - 20, 22);
+                ctx.fillStyle = "#e1e4e8";
+                ctx.fillText("PID USER     PRI  NI  VIRT   RES   SHR S CPU% MEM%   TIME+  Command", 20, 145);
+
+                const procs = [
+                    { pid: 1, user: "root", cpu: "0.0", mem: "0.1", cmd: "systemd" },
+                    { pid: 240, user: "user", cpu: "2.4", mem: "1.2", cmd: "hyprland" },
+                    { pid: 310, user: "user", cpu: "1.8", mem: "0.8", cmd: "waybar" },
+                    { pid: 450, user: "user", cpu: "3.1", mem: "2.5", cmd: "ghostty" },
+                    { pid: 512, user: "user", cpu: "0.4", mem: "0.3", cmd: "htop" }
+                ];
+
+                procs.forEach((p, idx) => {
+                    const y = 170 + (idx * 22);
+                    ctx.fillStyle = idx === 4 ? "#222426" : "transparent";
+                    ctx.fillRect(10, y - 14, canvas.width - 20, 20);
+                    ctx.fillStyle = "#e1e4e8";
+                    ctx.fillText(`${p.pid} ${p.user.padEnd(8)} 20   0  245M 18M 12M S  ${p.cpu}  ${p.mem}   0:02.10 ${p.cmd}`, 20, y);
+                });
+
+                ctx.fillStyle = "#222426";
+                ctx.fillRect(0, canvas.height - 25, canvas.width, 25);
+                ctx.fillStyle = "#8c9298";
+                ctx.fillText("F1Help  F2Setup  F3Search  F4Filter  F5Tree  F9Kill  F10Quit", 10, canvas.height - 8);
+
+                appAnimationId = setTimeout(() => requestAnimationFrame(render), 600);
+            }
+            render();
+        }
+
+        function runSteamLocomotive() {
+            openAppOverlay("sl - Steam Locomotive");
+            const canvas = DOM.appCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = DOM.canvasOverlay.clientWidth;
+            canvas.height = DOM.canvasOverlay.clientHeight;
+
+            let x = canvas.width;
+            const train = [
+                "      ====        ________                __  ",
+                "  _D _|  |_______/        \\__I_I_____===__|__ ",
+                "   |巧妙       |  ARCH LINUX  |            |  |",
+                "  (  `-------'----------------------------'  |",
+                "   =/----------------------------------------|",
+                "  (  (O)====(O)====(O)====(O)====(O)========) "
+            ];
+
+            function animate() {
+                ctx.fillStyle = "#18191a";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#e9c46a";
+                ctx.font = "14px JetBrains Mono";
+
+                const startY = Math.floor(canvas.height / 2) - 40;
+                train.forEach((line, index) => {
+                    ctx.fillText(line, x, startY + (index * 18));
+                });
+
+                x -= 8;
+                if (x < -600) {
+                    closeAppOverlay();
+                    return;
+                }
+                appAnimationId = requestAnimationFrame(animate);
+            }
+            animate();
+        }
+    </script>
+</body>
+</html>
